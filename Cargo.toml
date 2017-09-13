@@ -1,0 +1,8 @@
+[package]
+name = "dtn-tcpcl"
+version = "0.1.0"
+authors = ["Marco 'don' Kaulea <don@0xbeef.org>"]
+
+[dependencies]
+byteorder = "1"
+bitflags = "0.9.1"
