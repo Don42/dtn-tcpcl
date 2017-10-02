@@ -125,7 +125,6 @@ impl ContactHeader {
 
     /// Serialize the Contact Header to a byte vector
     pub fn serialize(&self) -> Vec<u8> {
-
         let mut buffer: Vec<u8> = Vec::with_capacity(
             CONTACT_HEADER_BASE_LENGTH +
                 self.eid
@@ -177,7 +176,7 @@ impl ContactHeader {
         }
         let flags = rdr.read_u8()
             .and_then(|x| ContactHeaderFlags::from_bits_strict(x))?;
-        let keep_alive = rdr.read_u16::<BigEndian>()?;
+        let keepalive = rdr.read_u16::<BigEndian>()?;
         let segment_mru = rdr.read_u64::<BigEndian>()?;
         let transfer_mru = rdr.read_u64::<BigEndian>()?;
 
@@ -192,12 +191,12 @@ impl ContactHeader {
         };
 
         Ok(ContactHeader {
-            version: version,
-            flags: flags,
-            keepalive: keep_alive,
-            segment_mru: segment_mru,
-            transfer_mru: transfer_mru,
-            eid: eid,
+            version,
+            flags,
+            keepalive,
+            segment_mru,
+            transfer_mru,
+            eid,
         })
     }
 }
@@ -205,6 +204,55 @@ impl ContactHeader {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     #[test]
-    fn it_works() {}
+    /// Test simple creation of a default header
+    fn test_init_contact_header() {
+        let contact_header = ContactHeader::new();
+        assert_eq!(contact_header.eid, None);
+        assert_eq!(contact_header.version, 4);
+        assert_eq!(contact_header.flags, super::ContactHeaderFlags::empty());
+        assert_eq!(contact_header.transfer_mru, 0);
+        assert_eq!(contact_header.segment_mru, 0);
+    }
+
+    #[test]
+    /// Test setting and unsetting a flag
+    fn test_set_unset_flag() {
+        let mut contact_header = ContactHeader::new();
+        assert_eq!(contact_header.flags, ContactHeaderFlags::empty());
+        contact_header.set_flag(CAN_TLS);
+        assert_eq!(contact_header.flags.bits(), 0x01);
+        assert_eq!(contact_header.flags, CAN_TLS);
+        contact_header.unset_flag(CAN_TLS);
+        assert_eq!(contact_header.flags.bits(), 0x00);
+        assert_eq!(contact_header.flags, ContactHeaderFlags::empty());
+    }
+
+    #[test]
+    /// Test clearing the bitfield
+    fn test_set_clear_flag() {
+        let mut contact_header = ContactHeader::new();
+        assert_eq!(contact_header.flags, ContactHeaderFlags::empty());
+        contact_header.set_flag(CAN_TLS);
+        assert_eq!(contact_header.flags, CAN_TLS);
+        contact_header.clear_flags();
+        assert_eq!(contact_header.flags.bits(), 0x00);
+        assert_eq!(contact_header.flags, ContactHeaderFlags::empty());
+    }
+
+    #[test]
+    /// Test setting the same flags twice
+    ///
+    /// This should behave the same way as setting it only once.
+    fn test_duplicate_set() {
+        let mut contact_header = ContactHeader::new();
+        assert_eq!(contact_header.flags, ContactHeaderFlags::empty());
+        contact_header.set_flag(CAN_TLS);
+        assert_eq!(contact_header.flags, CAN_TLS);
+        contact_header.set_flag(CAN_TLS);
+        assert_eq!(contact_header.flags, CAN_TLS);
+        contact_header.unset_flag(CAN_TLS);
+        assert_eq!(contact_header.flags, ContactHeaderFlags::empty());
+    }
 }
