@@ -5,10 +5,14 @@
 extern crate byteorder;
 #[macro_use]
 extern crate bitflags;
+#[macro_use]
+extern crate nom;
 
 use std::io::{Cursor, Read};
 use std::io::{Error, ErrorKind};
 use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
+
+use nom::{IResult, be_u8, be_u16, be_u64};
 
 /// Magic Bytes of the Contact Header
 const HEADER_MAGIC: [u8; 4] = [0x64, 0x74, 0x6e, 0x21];  // dtn!
@@ -161,7 +165,11 @@ impl ContactHeader {
     /// If the version parsed from the buffer is not supported an Error is returned.
     /// If the flags field contains invalid flags an Error is returned.
     /// If any of the reads fails an Error is returned.
-    pub fn deserialize(buffer: &[u8]) -> std::io::Result<ContactHeader> {
+    pub fn deserialize(i: &[u8]) -> IResult<&[u8], ContactHeader> {
+        contact_header(i)
+    }
+
+    fn nothing(buffer: &[u8]) -> std::io::Result<ContactHeader> {
         if buffer.len() < 4 {
             return Err(create_error!("buffer to short"));
         }
@@ -201,10 +209,38 @@ impl ContactHeader {
     }
 }
 
+named!(version< &[u8], u8>, map_opt!(be_u8,
+    |x: u8| -> Option<u8> {
+        match x {
+        0x04 => Some(0x04),
+        _ => None,
+        }}));
+named!(header_flags< &[u8], ContactHeaderFlags>, map_opt!(be_u8,
+    |x: u8| -> Option<ContactHeaderFlags> {
+        ContactHeaderFlags::from_bits(x)
+    }));
+named!(contact_header<ContactHeader>,
+    do_parse!(
+        tag!(HEADER_MAGIC) >>
+        version: version >>
+        flags: header_flags >>
+        keepalive: be_u16 >>
+        segment_mru: be_u64 >>
+        transfer_mru: be_u64 >>
+        (ContactHeader {
+        version: version,
+        flags: flags,
+        keepalive: keepalive,
+        segment_mru: segment_mru,
+        transfer_mru: transfer_mru,
+        eid: None })
+));
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     /// Test simple creation of a default header
     fn test_init_contact_header() {

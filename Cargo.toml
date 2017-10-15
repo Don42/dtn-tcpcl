@@ -6,3 +6,4 @@ authors = ["Marco 'don' Kaulea <don@0xbeef.org>"]
 [dependencies]
 byteorder = "1"
 bitflags = "0.9.1"
+nom = "^3.2"
