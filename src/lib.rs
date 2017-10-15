@@ -160,52 +160,12 @@ impl ContactHeader {
     /// This panic will be transformed to an Error in the future.
     ///
     /// # Errors
-    /// If the buffer is to short an Error is returned.
     /// If the first 4 octets of the buffer do not match the magic pattern an Error is returned.
     /// If the version parsed from the buffer is not supported an Error is returned.
     /// If the flags field contains invalid flags an Error is returned.
     /// If any of the reads fails an Error is returned.
     pub fn deserialize(i: &[u8]) -> IResult<&[u8], ContactHeader> {
         contact_header(i)
-    }
-
-    fn nothing(buffer: &[u8]) -> std::io::Result<ContactHeader> {
-        if buffer.len() < 4 {
-            return Err(create_error!("buffer to short"));
-        }
-        if HEADER_MAGIC != buffer[0..4] {
-            return Err(create_error!("magic not matched"));
-        }
-        let mut rdr = Cursor::new(&buffer[4..]);
-
-        let version = rdr.read_u8()?;
-        if version != 4 {
-            return Err(create_error!("version not supported"));
-        }
-        let flags = rdr.read_u8()
-            .and_then(|x| ContactHeaderFlags::from_bits_strict(x))?;
-        let keepalive = rdr.read_u16::<BigEndian>()?;
-        let segment_mru = rdr.read_u64::<BigEndian>()?;
-        let transfer_mru = rdr.read_u64::<BigEndian>()?;
-
-        let eid_length = rdr.read_u16::<BigEndian>()?;
-        let eid = match eid_length {
-            0 => None,
-            _ => {
-                let mut eid_raw: Vec<u8> = Vec::new();
-                rdr.take(eid_length as u64).read_to_end(&mut eid_raw)?;
-                Some(String::from_utf8(eid_raw).unwrap()) // Convert parser error
-            }
-        };
-
-        Ok(ContactHeader {
-            version,
-            flags,
-            keepalive,
-            segment_mru,
-            transfer_mru,
-            eid,
-        })
     }
 }
 
@@ -219,6 +179,15 @@ named!(header_flags< &[u8], ContactHeaderFlags>, map_opt!(be_u8,
     |x: u8| -> Option<ContactHeaderFlags> {
         ContactHeaderFlags::from_bits(x)
     }));
+named!(parse_eid< &[u8], Option<String> >,
+    do_parse!(
+        size: be_u16 >>
+        raw_eid: take!(size) >>
+        (match size {
+            0 => None,
+            _ => Some(String::from_utf8(raw_eid.to_vec()).unwrap()),
+        })
+));
 named!(contact_header<ContactHeader>,
     do_parse!(
         tag!(HEADER_MAGIC) >>
@@ -227,13 +196,14 @@ named!(contact_header<ContactHeader>,
         keepalive: be_u16 >>
         segment_mru: be_u64 >>
         transfer_mru: be_u64 >>
+        eid: parse_eid >>
         (ContactHeader {
         version: version,
         flags: flags,
         keepalive: keepalive,
         segment_mru: segment_mru,
         transfer_mru: transfer_mru,
-        eid: None })
+        eid: eid })
 ));
 
 
