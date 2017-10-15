@@ -8,7 +8,6 @@ extern crate bitflags;
 #[macro_use]
 extern crate nom;
 
-use std::io::{Cursor, Read};
 use std::io::{Error, ErrorKind};
 use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
 
@@ -190,8 +189,8 @@ named!(parse_eid< &[u8], Option<String> >,
 ));
 named!(contact_header<ContactHeader>,
     do_parse!(
-        tag!(HEADER_MAGIC) >>
-        version: version >>
+        return_error!(nom::ErrorKind::Custom(257), tag!(HEADER_MAGIC)) >>
+        version: return_error!(nom::ErrorKind::Custom(258), version) >>
         flags: header_flags >>
         keepalive: be_u16 >>
         segment_mru: be_u64 >>

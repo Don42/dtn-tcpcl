@@ -56,8 +56,12 @@ fn handle_connection(mut stream: TcpStream) {
                         };
                         continue
                     }
-                    IResult::Error(e) => {
-                        eprintln!("ERROR PARSING: {}", e);
+                    IResult::Error(err) => {
+                        match err {
+                            nom::ErrorKind::Custom(257) => eprintln!("ERROR PARSING: INVALID MAGIC"),
+                            nom::ErrorKind::Custom(258) => eprintln!("ERROR PARSING: unsupported version"),
+                            _ => eprintln!("ERROR PARSING: {}", err),
+                        }
                         break
                     }
                 }
